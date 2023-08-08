@@ -1,6 +1,6 @@
 ## Description
 
-This repo contains the implementation of the Unity application to publish the poses of the Pico4. It was developed with Unity 2021.3.13f1. You can either build it yourself or find APK in TODO.
+This repo contains the implementation of the Unity application to publish the poses of the Pico4. It was developed with Unity 2021.3.13f1. You can either build it yourself or find the APK [here](Build/PicoPoses.apk).
 
 ## Instructions
 
