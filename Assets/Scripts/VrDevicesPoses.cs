@@ -22,6 +22,14 @@ public class VrDevicesPoses : MonoBehaviour
     private float buttonStateA = 0.0f;
     private float buttonStateB = 0.0f;
     private float buttonPressDuration = 0.8f;
+    private float avg = 0.0f;
+    private int avg_counter = 0;
+    private float pubElapsedTime = 0.0f;
+    private bool firstPublish = true;
+    private float targetPublishDt = 1.0f / 36.0f;
+    private float p_avg = 0.0f;
+    private int p_avg_counter = 0;
+
 
     // Start is called before the first frame update
     void Start()
@@ -76,9 +84,10 @@ public class VrDevicesPoses : MonoBehaviour
                 poseBallManager.toggleVisibility();
             }
 
-            logDeviceInfo("left controller", ref leftController, 0);
+            //logDeviceInfo("left controller", ref leftController, 0);
             logDeviceInfo("hmd", ref hmd, 1);
             logDeviceInfo("right controller", ref rightController, 2);
+
 
             // Storing the positions and rotations in an Ubii.DataStructure.FloatList
             List<float> dev_info = new List<float>();
@@ -106,12 +115,70 @@ public class VrDevicesPoses : MonoBehaviour
             dev_info.Add(buttonStateB);
 
 
-            publisher.Publish(string.Join(" ", dev_info));
+            sendMessage(string.Join(" ", dev_info));
 
             //Move the balls to controllers and headsetPosition
             poseBallManager.MoveBalls(positions, rotations);
         }    
        
+    }
+
+    public void SetTargetDt(string input_dt)
+    {
+
+        //To avoid problem of parsing of comma or period; we now instead pass the Hz
+        // the dt= 1.0/Hz#
+        int hz = int.Parse(input_dt);
+        targetPublishDt = 1.0f / hz;
+        p_avg = targetPublishDt;
+        p_avg_counter = 1;
+
+    }
+
+    private void sendMessage(string msg)
+    {
+        
+        float dt = Time.deltaTime;
+        if (avg_counter == 0)
+        {
+            avg = dt;
+            avg_counter += 1;
+        }
+        else
+        {
+            avg_counter += 1;
+            avg = avg + (dt - avg) / avg_counter;
+        }
+
+        pubElapsedTime += dt;
+        bool moreEqTime = pubElapsedTime >= targetPublishDt;
+        bool lessButClose = pubElapsedTime < targetPublishDt && pubElapsedTime >= 0.8f * targetPublishDt;
+        if (firstPublish || moreEqTime || lessButClose)
+        {
+            if (firstPublish)
+            {
+                firstPublish = false;
+            }
+
+            publisher.Publish(msg);
+
+
+            if (p_avg_counter == 0)
+            {
+                p_avg = pubElapsedTime;
+                p_avg_counter += 1;
+            }
+            else
+            {
+                p_avg_counter += 1;
+                p_avg = p_avg + (pubElapsedTime - p_avg) / p_avg_counter;
+            }
+
+            pubElapsedTime = 0.0f;
+        }
+
+        disM.LogToDisplay(string.Format("Operating with dt of {0}.\n Publish with dt of {1}'.", avg.ToString("#.0000"), p_avg.ToString("#.0000")),0);
+
     }
 
     private InputDevice GetInputDevice(InputDeviceCharacteristics chars)
